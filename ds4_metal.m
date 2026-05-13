@@ -2115,6 +2115,43 @@ void ds4_gpu_print_memory_report(const char *label) {
             ds4_gpu_mib((uint64_t)g_raw_store_round_bytes));
 }
 
+// Returns the Metal function-constant slot index for the named constant in the
+// named kernel, or -1 if the kernel cannot be specialized or the constant is
+// not declared. The FC_MUL_MM slot range is shared across dense.metal and
+// moe.metal (both compiled into one library), so the test harness uses this
+// to verify host/kernel agreement on slot indices.
+int ds4_gpu_function_constant_index(const char *kernel_name,
+                                    const char *constant_name) {
+    if (!kernel_name || !constant_name) return -1;
+    if (!g_initialized && !ds4_gpu_init()) return -1;
+    if (!g_library) return -1;
+
+    // functionConstantsDictionary only carries the slot/name mapping on an
+    // *unspecialized* MTLFunction. Use the no-constants form so we get the
+    // reflection metadata instead of a baked-in specialized function.
+    NSString *kn = [NSString stringWithUTF8String:kernel_name];
+    id<MTLFunction> fn = [g_library newFunctionWithName:kn];
+    if (!fn) {
+        fprintf(stderr, "ds4: %s newFunctionWithName (unspecialized) failed\n",
+                kernel_name);
+        return -1;
+    }
+
+    NSString *cn = [NSString stringWithUTF8String:constant_name];
+    MTLFunctionConstant *fc = fn.functionConstantsDictionary[cn];
+    if (!fc) {
+        fprintf(stderr, "ds4: %s has no constant '%s'; available: ",
+                kernel_name, constant_name);
+        for (NSString *k in fn.functionConstantsDictionary) {
+            MTLFunctionConstant *c = fn.functionConstantsDictionary[k];
+            fprintf(stderr, "%s@%u ", [k UTF8String], (unsigned)c.index);
+        }
+        fprintf(stderr, "\n");
+        return -1;
+    }
+    return (int)fc.index;
+}
+
 static void ds4_gpu_mpp_reset_reports(void) {
     g_mpp_f16_reported = 0;
     g_mpp_f16_pair_reported = 0;

@@ -49,6 +49,8 @@ void ds4_gpu_set_mpp_mode(ds4_mpp_mode mode);
 void ds4_gpu_set_mpp_compare_context(const char *module, uint32_t layer_index, uint32_t pos0);
 void ds4_gpu_clear_mpp_compare_context(void);
 void ds4_gpu_print_memory_report(const char *label);
+int ds4_gpu_function_constant_index(const char *kernel_name,
+                                    const char *constant_name);
 
 /* =========================================================================
  * Embeddings and Indexer Helpers.

@@ -177,7 +177,66 @@ static void test_metal_f16_matvec_fast_nr0_4(void) {
     free(weights_raw);
 }
 
+/*
+ * The FC_MUL_MM slot range (700..703) is declared across two .metal files
+ * concatenated into a single Metal library: dense.metal declares bc_inp,
+ * bc_out, and m5_sgmatrix; moe.metal declares id_mpp. The host's pipeline
+ * factory in ds4_metal.m writes specific slots by raw index, so if either
+ * kernel-side declaration drifts away from the FC_MUL_MM_* macros, the host
+ * and kernel disagree and the routing flag silently aliases onto the wrong
+ * gate. The MPP <-> M5 simdgroup-matrix merge had exactly that bug
+ * (FC_mul_mm_id_mpp at slot 702 instead of 703). This test pins the ABI.
+ */
+static void test_metal_function_constant_abi(void) {
+    const int FC_MUL_MM = 700;
+    const int FC_MUL_MM_BC_OUT = 701;
+    const int FC_MUL_MM_M5_SGMATRIX = 702;
+    const int FC_MUL_MM_MPP = 703;
+
+    /* MoE matmul path: must read FC_mul_mm_id_mpp from slot 703 to match the
+     * use_mpp value the host writes in ds4_gpu_get_mul_mm_id_pipeline. */
+    const int id_mpp_idx = ds4_gpu_function_constant_index(
+            "kernel_mul_mm_id_q4_K_f32", "FC_mul_mm_id_mpp");
+    if (id_mpp_idx < 0) {
+        fprintf(stderr,
+                "ds4-test: skipping function-constant ABI check; "
+                "kernel_mul_mm_id_q4_K_f32 not introspectable\n");
+        return;
+    }
+    if (id_mpp_idx != FC_MUL_MM_MPP) {
+        fprintf(stderr,
+                "ds4-test: FC_mul_mm_id_mpp at slot %d, expected %d "
+                "(host writes use_mpp to slot 703)\n",
+                id_mpp_idx, FC_MUL_MM_MPP);
+    }
+    TEST_ASSERT(id_mpp_idx == FC_MUL_MM_MPP);
+
+    /* Same kernel: bc_inp at 700 (host writes it via the same factory). */
+    const int id_bc_inp_idx = ds4_gpu_function_constant_index(
+            "kernel_mul_mm_id_q4_K_f32", "FC_mul_mm_bc_inp");
+    TEST_ASSERT(id_bc_inp_idx == FC_MUL_MM);
+
+    /* Dense matmul path: q8_0 kernel reads FC_mul_mm_m5_sgmatrix from slot
+     * 702 (host writes m5_sgmatrix there in ds4_gpu_get_mul_mm_pipeline). */
+    const int dense_m5_idx = ds4_gpu_function_constant_index(
+            "kernel_mul_mm_q8_0_f32", "FC_mul_mm_m5_sgmatrix");
+    TEST_ASSERT(dense_m5_idx == FC_MUL_MM_M5_SGMATRIX);
+
+    /* Dense path also exposes bc_inp at 700 and bc_out at 701; cross-check
+     * to lock the full FC_MUL_MM slot ordering, not just the post-fix gate. */
+    const int dense_bc_inp_idx = ds4_gpu_function_constant_index(
+            "kernel_mul_mm_q8_0_f32", "FC_mul_mm_bc_inp");
+    TEST_ASSERT(dense_bc_inp_idx == FC_MUL_MM);
+
+    const int dense_bc_out_idx = ds4_gpu_function_constant_index(
+            "kernel_mul_mm_q8_0_f32", "FC_mul_mm_bc_out");
+    if (dense_bc_out_idx >= 0) {
+        TEST_ASSERT(dense_bc_out_idx == FC_MUL_MM_BC_OUT);
+    }
+}
+
 static void test_metal_kernel_group(void) {
+    test_metal_function_constant_abi();
     test_metal_f16_matvec_fast_nr0_4();
 }
 
