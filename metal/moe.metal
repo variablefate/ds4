@@ -87,7 +87,11 @@ static constant ulong ds4_metal_iq2xxs_grid[256] = {
     0x2b2b082b08080808, 0x2b2b190808192b08, 0x2b2b2b0819190808, 0x2b2b2b1908081908,
 };
 
-constant bool FC_mul_mm_id_mpp [[function_constant(FC_MUL_MM + 2)]];
+// FC_mul_mm_id_mpp lives at slot FC_MUL_MM_MPP (703). Slot 702 is owned by
+// FC_mul_mm_m5_sgmatrix (declared in dense.metal); the Metal library is built
+// as a single translation unit with dense.metal concatenated before moe.metal,
+// so the m5 constant is in scope wherever this file references it below.
+constant bool FC_mul_mm_id_mpp [[function_constant(FC_MUL_MM_MPP)]];
 
 #define kmask_iq2xs ds4_metal_kmask_iq2xs
 #define ksigns_iq2xs ds4_metal_ksigns_iq2xs

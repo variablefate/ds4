@@ -907,6 +907,11 @@ template [[host_name("kernel_mul_mv_ext_q8_0_f32_r1_3")]] kernel mul_mv_ext_q4_f
 template [[host_name("kernel_mul_mv_ext_q8_0_f32_r1_4")]] kernel mul_mv_ext_q4_f32_t kernel_mul_mv_ext_q4_f32_disp<4, block_q8_0, 32, dequantize_q8_0_t4>;
 template [[host_name("kernel_mul_mv_ext_q8_0_f32_r1_5")]] kernel mul_mv_ext_q4_f32_t kernel_mul_mv_ext_q4_f32_disp<5, block_q8_0, 32, dequantize_q8_0_t4>;
 
+// FC_MUL_MM function-constant slot map (defines in ds4_metal.m preamble):
+//   FC_MUL_MM + 0 = 700  bc_inp           (declared here)
+//   FC_MUL_MM + 1 = 701  bc_out           (declared here)
+//   FC_MUL_MM_M5_SGMATRIX = 702  m5_sgmatrix   (declared here; used by moe.metal too)
+//   FC_MUL_MM_MPP         = 703  id_mpp        (declared in moe.metal)
 constant bool FC_mul_mm_bc_inp [[function_constant(FC_MUL_MM + 0)]];
 constant bool FC_mul_mm_bc_out [[function_constant(FC_MUL_MM + 1)]];
 constant bool FC_mul_mm_m5_sgmatrix [[function_constant(FC_MUL_MM_M5_SGMATRIX)]];
